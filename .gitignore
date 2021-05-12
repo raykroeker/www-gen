@@ -12,6 +12,7 @@
 *.out
 
 # Generated Sites
+bin/monitor.json
 bin/www
 
 # Dependency directories (remove the comment below to include it)

@@ -1,14 +1,15 @@
 GO		:= $(shell which go)
 ROOT	:= $(shell pwd)
 
-# CONFIG is the site configuration.
-CONFIG		?= ''
-# CONTENT is the contenent root
-CONTENT		?= ''
-# SITES is the root into which the site is generated
-SITES 		?= ''
-# TEMPLATES are golang templates used to render pages.
-TEMPLATES	?= ''
+# SRC is the root directory of the source files
+SRC	?= ''
+# DST is the root into which the sites are generated
+DST	?= ''
+
+.PHONY: gen mon
 
 gen:
-	$(GO) run src/wwwgen/cmd/wwwgen/main.go -debug -config $(CONFIG) -content $(CONTENT) -sites $(SITES) -templates $(TEMPLATES)
+	$(GO) run src/wwwgen/cmd/wwwgen/main.go -debug -config $(SRC)/sites.json -content $(SRC)/content -monitor bin/monitor.json -sites $(DST) -templates $(SRC)/templates
+
+mon:
+	$(GO) run src/wwwmon/cmd/wwwmon/main.go -debug -config bin/monitor.json
