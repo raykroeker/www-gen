@@ -9,7 +9,7 @@ DST	?= ''
 .PHONY: gen mon
 
 gen:
-	$(GO) run src/wwwgen/cmd/wwwgen/main.go -debug -config $(SRC)/sites.json -content $(SRC)/content -monitor bin/monitor.json -sites $(DST) -templates $(SRC)/templates
+	$(GO) run src/cmd/wwwgen/main.go -debug -config $(SRC)/sites.json -content $(SRC)/content -monitor bin/monitor.json -sites $(DST) -templates $(SRC)/templates
 
 mon:
-	$(GO) run src/wwwmon/cmd/wwwmon/main.go -debug -config bin/monitor.json
+	$(GO) run src/cmd/wwwmon/main.go -debug -config bin/monitor.json
