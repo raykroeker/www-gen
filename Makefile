@@ -12,9 +12,9 @@ MONOPTS ?= ''
 .PHONY: gen mon
 
 gen:
-	$(GO) run src/cmd/wwwgen/main.go -config $(SRC)/sites.json \
+	GOPATH=$(ROOT) $(GO) run src/cmd/wwwgen/main.go -config $(SRC)/sites.json \
 		-content $(SRC)/content -monitor bin/monitor.json -sites $(DST) \
 		-templates $(SRC)/templates$(GENOPTS)
 
 mon:
-	$(GO) run src/cmd/wwwmon/main.go -config bin/monitor.json$(MONOPTS)
+	GOPATH=$(ROOT) $(GO) run src/cmd/wwwmon/main.go -config bin/monitor.json$(MONOPTS)

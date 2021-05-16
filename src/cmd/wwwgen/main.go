@@ -10,9 +10,11 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path"
 	"strings"
+	"www"
 )
 
 var (
@@ -56,7 +58,7 @@ func main() {
 	}
 	debugL.Printf("config=%v", config)
 	urls := map[string]struct{}{}
-	mon := &monitor{}
+	mon := &www.Monitor{}
 	for _, site := range config.Sites {
 		for _, domain := range site.Domains {
 			for _, content := range site.Content {
@@ -102,22 +104,6 @@ func main() {
 	}
 }
 
-type monitor struct {
-	Endpoints []*endpoint `json:"endpoints"`
-}
-
-func (m *monitor) addEndpoint(url string, sha512 []byte) {
-	m.Endpoints = append(m.Endpoints, &endpoint{
-		URL:    url,
-		SHA512: base64.StdEncoding.EncodeToString(sha512),
-	})
-}
-
-type endpoint struct {
-	URL    string `json:"url"`
-	SHA512 string `json:"sha512"`
-}
-
 type config struct {
 	Sites map[string]*site `json:"sites"`
 }
@@ -129,7 +115,7 @@ func (c *config) String() string {
 type site struct {
 	Content []*content `json:"content"`
 	Domains []string   `json:"domains"`
-	Pages   []*page    `json:"pages"`
+	Pages   []*pages   `json:"pages"`
 }
 
 func (s site) String() string {
@@ -141,7 +127,7 @@ type content struct {
 	Address string   `json:"address"`
 }
 
-func (c content) copy(mon *monitor, domain string) error {
+func (c content) copy(mon *www.Monitor, domain string) error {
 	copy := func(dstFilename, srcFilename string) ([]byte, int64, error) {
 		dst, err := os.OpenFile(dstFilename, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
 		if err != nil {
@@ -166,7 +152,7 @@ func (c content) copy(mon *monitor, domain string) error {
 		return err
 	}
 	for _, p := range c.Paths {
-		dstFilename := path.Join(flags.sites, domain, p)
+		dstFilename := localFilePath(domain, p)
 		dir := path.Dir(dstFilename)
 		if _, err := os.Stat(dir); os.IsNotExist(err) {
 			err = os.MkdirAll(dir, 0700)
@@ -178,7 +164,12 @@ func (c content) copy(mon *monitor, domain string) error {
 		if err != nil {
 			return err
 		}
-		mon.addEndpoint(fmt.Sprintf("https://%s%s", domain, p), hashSum)
+		mon.Endpoints = append(mon.Endpoints, &www.Endpoint{
+			Method:             http.MethodGet,
+			URL:                fmt.Sprintf("https://%s%s", domain, p),
+			ExpectedStatusCode: 200,
+			ExpectedBodyHash:   base64.StdEncoding.EncodeToString(hashSum),
+		})
 		debugL.Printf("src=%s dst=%s bytes=%d", srcFilename, dstFilename, bytes)
 	}
 	return nil
@@ -188,16 +179,23 @@ func (c content) String() string {
 	return fmt.Sprintf("paths=%q address=%s", c.Paths, c.Address)
 }
 
-type page struct {
-	Paths    []string `json:"paths"`
-	Template string   `json:"template"`
+// pages uses a single go html template to generate multiple static pages. A
+// page is generated per path.
+type pages struct {
+	// Paths at which the pages exist.
+	Paths []string `json:"paths"`
+	// Template used to render the pages.
+	Template string `json:"template"`
 }
 
-func (p page) String() string {
+// String imlements Stringer.
+func (p pages) String() string {
 	return fmt.Sprintf("paths=%q template=%s", p.Paths, p.Template)
 }
 
-func (p *page) generate(mon *monitor, domain string) error {
+// generate pages for the domain. The template is executed for each path (sub
+// optimal) and written into the domain root.
+func (p *pages) generate(mon *www.Monitor, domain string) error {
 	text, err := ioutil.ReadFile(path.Join(flags.templates, fmt.Sprintf("%s.html", p.Template)))
 	if err != nil {
 		return err
@@ -233,11 +231,26 @@ func (p *page) generate(mon *monitor, domain string) error {
 		return hash.Sum(nil), nil
 	}
 	for _, p := range p.Paths {
-		hashSum, err := execute(path.Join(flags.sites, domain, p))
+		hashSum, err := execute(localFilePath(domain, p))
 		if err != nil {
 			return err
 		}
-		mon.addEndpoint(fmt.Sprintf("https://%s%s", domain, p), hashSum)
+		mon.Endpoints = append(mon.Endpoints, &www.Endpoint{
+			Method:             http.MethodGet,
+			URL:                fmt.Sprintf("https://%s%s", domain, p),
+			ExpectedStatusCode: http.StatusOK,
+			ExpectedBodyHash:   base64.StdEncoding.EncodeToString(hashSum),
+		})
 	}
 	return nil
+}
+
+// localFilePath builds a local filesystem path at to write to.
+func localFilePath(domain, leaf string) string {
+	// www.raykroeker.com -> com.raykroeker.www
+	tokens := strings.Split(domain, ".")
+	for left, right := 0, len(tokens)-1; left < right; left, right = left+1, right-1 {
+		tokens[left], tokens[right] = tokens[right], tokens[left]
+	}
+	return path.Join(flags.sites, strings.Join(tokens, "."), leaf)
 }
