@@ -51,7 +51,7 @@ func main() {
 	debugL.Printf("mon=%v", mon)
 	checkCh := make(chan check, flags.parallel*2)
 	checkResultCh := make(chan result, flags.parallel*2)
-	done := make(chan struct{})
+	done := make(chan int)
 	go func() {
 		all := []result{}
 		for res := range checkResultCh {
@@ -65,13 +65,16 @@ func main() {
 			}
 			return false
 		})
+		exit := 0
 		for _, res := range all {
 			if res.pass {
 				fmt.Printf("%v\n", res)
 			} else {
+				exit = 1
 				fmt.Printf("\n%v\n\n", res)
 			}
 		}
+		done <- exit
 		close(done)
 	}()
 	var wg sync.WaitGroup
@@ -101,7 +104,7 @@ func main() {
 	close(checkCh)
 	wg.Wait()
 	close(checkResultCh)
-	<-done
+	os.Exit(<-done)
 }
 
 // check defines a check execution.
