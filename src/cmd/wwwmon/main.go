@@ -93,7 +93,7 @@ func main() {
 		}()
 	}
 	client := &http.Client{
-		Timeout: time.Millisecond * 750,
+		Timeout: time.Second * 1,
 	}
 	for _, endpoint := range mon.Endpoints {
 		checkCh <- &endpointCheck{
