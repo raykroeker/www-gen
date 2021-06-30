@@ -1,3 +1,5 @@
+// Command wwwgen uses the site configuration to generate a static web site. The
+// tempates are read from the
 package main
 
 import (
@@ -23,7 +25,7 @@ var (
 	wd, _            = os.Getwd()
 	defaultContent   = path.Clean(path.Join(wd, "..", "www-src", "content"))
 	defaultMonitor   = path.Clean(path.Join(wd, "..", "www-src", "mon.json"))
-	defaultSites     = path.Clean(path.Join(wd, "..", "wwww"))
+	defaultSites     = path.Clean(path.Join(wd, "..", "www"))
 	defaultTemplates = path.Clean(path.Join(wd, "..", "www-src", "templates"))
 )
 
@@ -182,6 +184,8 @@ func (c content) String() string {
 // pages uses a single go html template to generate multiple static pages. A
 // page is generated per path.
 type pages struct {
+	// Data for the template.
+	Data map[string]interface{} `json:"data"`
 	// Paths at which the pages exist.
 	Paths []string `json:"paths"`
 	// Template used to render the pages.
@@ -224,7 +228,7 @@ func (p *pages) generate(mon *www.Monitor, domain string) error {
 		} else {
 			w = io.MultiWriter(hash, file)
 		}
-		err = template.Execute(w, nil)
+		err = template.Execute(w, p.Data)
 		if err != nil {
 			return nil, err
 		}
