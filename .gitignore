@@ -16,4 +16,5 @@ bin/monitor.json
 bin/www
 
 # Dependency directories (remove the comment below to include it)
-# vendor/
+src/vendor
+vendor/

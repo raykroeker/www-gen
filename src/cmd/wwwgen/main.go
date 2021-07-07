@@ -17,6 +17,8 @@ import (
 	"path"
 	"strings"
 	"www"
+
+	"github.com/russross/blackfriday"
 )
 
 var (
@@ -197,6 +199,20 @@ func (p pages) String() string {
 	return fmt.Sprintf("paths=%q template=%s", p.Paths, p.Template)
 }
 
+// funcMap returns a template function map.
+func (p *pages) funcMap() template.FuncMap {
+	return template.FuncMap{
+		"markdownToHTML": func(templateFilename string) template.HTML {
+			filename := path.Join(flags.templates, fmt.Sprintf("%s.md", templateFilename))
+			data, err := ioutil.ReadFile(filename)
+			if err != nil {
+				errL.Fatalf("Cannot read markdown filename=%s", filename)
+			}
+			return template.HTML(string(blackfriday.Run(data)))
+		},
+	}
+}
+
 // generate pages for the domain. The template is executed for each path (sub
 // optimal) and written into the domain root.
 func (p *pages) generate(mon *www.Monitor, domain string) error {
@@ -204,7 +220,7 @@ func (p *pages) generate(mon *www.Monitor, domain string) error {
 	if err != nil {
 		return err
 	}
-	template, err := template.New(p.Template).Parse(string(text))
+	template, err := template.New(p.Template).Funcs(p.funcMap()).Parse(string(text))
 	if err != nil {
 		return err
 	}
